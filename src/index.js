@@ -6,6 +6,7 @@ const {validateEmail, validatePassword} = require('./middlewares/validateLogin')
 const {validateName, validateAge, validateTalk, validateWatchedAt, validateRate} = require('./middlewares/validateTalker')
 const validateToken = require('./middlewares/validateToken')
 const {validateRateParam, validateDateParam} = require('./middlewares/validateSearch')
+const validateRatePatch = require('./middlewares/validatePatch')
 const app = express();
 app.use(express.json());
 
@@ -62,23 +63,6 @@ app.get("/talker/search", validateToken,  validateRateParam, validateDateParam, 
   }
 });
 
-// app.get("/talker/search", validateToken, async (req, res) => {
-//   try {
-//     const { q } = req.query;
-//     const talkers = await readTalker();
-//     if (q) {
-//       const filteredTalkers = talkers.filter((talker) => talker.name.includes(q));
-//       return res.status(200).json(filteredTalkers);
-//     } else if (!q) {
-//       return res.status(200).json(talkers);
-//     }
-//     res.status(200).end([]);
-//   } catch (err) {
-//     res.status(500).send({ message: err.message });
-//   }
-// });
-
-
 app.get("/talker/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -112,7 +96,7 @@ app.post('/talker', validateToken, validateName, validateAge, validateTalk, vali
 app.put("/talker/:id", validateToken, validateName, validateAge, validateTalk, validateWatchedAt, validateRate, async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedTalker = req.body
+    const updatedTalker = {...req.body}
     const talkers = await readTalker();
     const index = talkers.findIndex((talker) => talker.id === Number(id));
     if (index === -1) {
@@ -120,7 +104,6 @@ app.put("/talker/:id", validateToken, validateName, validateAge, validateTalk, v
     }
 
     talkers[index] = { id: Number(id), ...updatedTalker };
-    console.log(talkers[index]);
     await fs.writeFile(talkerPath, JSON.stringify(talkers));
 
     res.status(200).json({ id: Number(id), ...updatedTalker });
@@ -136,6 +119,22 @@ app.delete("/talker/:id", validateToken, async (req, res) => {
     const filteredTalkers = talkers.filter((talker) => talker.id != Number(id));
     await fs.writeFile(talkerPath, JSON.stringify(filteredTalkers));
     res.status(204).end();
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+app.patch("/talker/rate/:id", validateToken, validateRatePatch,async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rate = req.body;
+    const talkers = await readTalker();
+    const index = talkers.findIndex((talker) => talker.id === Number(id));
+
+    talkers[index].talk.rate = rate.rate;
+    await fs.writeFile(talkerPath, JSON.stringify(talkers));
+
+    res.status(204).json(talkers);
   } catch (error) {
     res.status(500).send(error.message);
   }
