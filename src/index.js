@@ -51,14 +51,13 @@ app.get('/talker/db',
     try {
       const [result] = await talkerDB.findAll();
       const fixedFormat = result.map((talker) => {
-        const { name, age, id, talk_rate, talk_watched_at } = talker;
+        const { name, age, id, talk_rate: rate, talk_watched_at: watchedAt } = talker;
         const talkInfo = {
-          watchedAt: talk_watched_at,
-          rate: talk_rate,
+          watchedAt,
+          rate,
         };
         return { name, age, id, talk: talkInfo };
       });
-      console.log(result);
       res.status(200).json(fixedFormat);
     } catch (error) {
       res.status(500).send(error.message);
