@@ -5,6 +5,7 @@ const generateToken = require('./utils/generateToken')
 const {validateEmail, validatePassword} = require('./middlewares/validateLogin')
 const {validateName, validateAge, validateTalk, validateWatchedAt, validateRate} = require('./middlewares/validateTalker')
 const validateToken = require('./middlewares/validateToken')
+const {validateRateParam} = require('./middlewares/validateSearch')
 const app = express();
 app.use(express.json());
 
@@ -12,6 +13,7 @@ const HTTP_OK_STATUS = 200;
 const PORT = process.env.PORT || '3001';
 
 const talkerPath = path.resolve(__dirname, "./talker.json");
+let id = 5;
 
 const readTalker = async (id) => {
   try {
@@ -30,6 +32,51 @@ app.get("/talker", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/talker/search", validateToken, validateRateParam, async (req, res) => {
+  try {
+    const { rate, q } = req.query;
+    const talkers = await readTalker();
+    if (q || rate) {
+      // Aplica os filtros separadamente
+      let filteredTalkers = talkers;
+
+      if (q) {
+        // Filtra pelo nome
+        filteredTalkers = filteredTalkers.filter((talker) => talker.name.includes(q));
+      }
+
+      if (rate) {
+        // Filtra pela taxa (rate)
+        filteredTalkers = filteredTalkers.filter((talker) => talker.talk.rate === Number(rate));
+      }
+
+      return res.status(200).json(filteredTalkers);
+    } else {
+      // Se nenhum filtro for aplicado, retorna todos os talkers
+      return res.status(200).json(talkers);
+    }
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+});
+
+app.get("/talker/search", validateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    const talkers = await readTalker();
+    if (q) {
+      const filteredTalkers = talkers.filter((talker) => talker.name.includes(q));
+      return res.status(200).json(filteredTalkers);
+    } else if (!q) {
+      return res.status(200).json(talkers);
+    }
+    res.status(200).end([]);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+});
+
 
 app.get("/talker/:id", async (req, res) => {
   try {
@@ -50,12 +97,16 @@ app.post('/login', validateEmail, validatePassword, (req, res) => {
   res.status(200).json({ token: token });
 })
 
-let id = 5;
-app.post('/talker', validateToken, validateName, validateAge, validateTalk, validateWatchedAt, validateRate, (req, res) => {
+
+app.post('/talker', validateToken, validateName, validateAge, validateTalk, validateWatchedAt, validateRate, async (req, res) => {
   const talker = { ...req.body };
+  const talkers = await readTalker();
   id += 1
+  await fs.writeFile(talkerPath, JSON.stringify([{ id, ...talker }, ...talkers]));
   res.status(201).json({ id, ...talker });
 })
+
+
 
 app.put("/talker/:id", validateToken, validateName, validateAge, validateTalk, validateWatchedAt, validateRate, async (req, res) => {
   try {
